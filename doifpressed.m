@@ -1,5 +1,4 @@
 % doifpressed函数 - 注册热键
-
 % GlobalHookListener().doifpressed({'VcLeftControl', 'VcF9'}, fcn)
 function doifpressed(listener,hotkeys, fcn)
 % DOIFPRESSED 注册热键和对应的回调函数
@@ -86,4 +85,5 @@ stateName = [keyCode];
 if isfield(listener.UserData, stateName)
     listener.UserData.(stateName) = false;
 end
+
 end
