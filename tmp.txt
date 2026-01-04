@@ -1,0 +1,122 @@
+大致修改思路展示
+
+properties (Access = private)
+        hook              % SharpHook钩子实例
+        running = false   % 钩子运行状态
+		keynameDic		  % 键名字典映射 双向构建	  
+        Fcndic       =Cell     % 函数名
+    end
+    
+    properties
+        eventListeners=Cell    % 事件监听器集合\
+        % 回调函数的obj在外部设置时传入
+        KeyPressCallback           % 键盘按下回调函数
+        KeyReleaseCallback         % 键盘释放回调函数
+        MousePressCallback         % 鼠标按下回调函数
+        MouseReleaseCallback       % 鼠标释放回调函数
+        MouseMoveCallback          % 鼠标移动回调函数
+        MouseWheelCallback         % 鼠标滚轮回调函数
+    end
+    
+    properties (SetObservable)
+		HookStarthotkey=[]		   % 设置钩子启动热键
+		HookStophotkey='VcEscape'          %        退出热键
+        hotkeys={}                 % 
+        UserData
+    end
+
+function obj = GlobalHookListener()
+            % GLOBALHOOKLISTENER 构造函数
+            obj.initialize
+            obj.Fcndic{'启动热键回调'}=[@obj.handleKeyPress @obj.PreSetKeyPress] ;
+            % @(s,e)obj.KeyPressPrecedure(@obj.PreSetKeyPress,s,e);
+            % [@obj.KeyPressPrecedure,@obj.PreSetKeyPress] ;
+            obj.Fcndic{'退出热键回调'}=[@obj.handleKeyPress @obj.StopFcn] ;
+            % @(s,e)obj.KeyPressPrecedure(@obj.StopFcn,s,e);
+			% 设置启动，退出热键，二者执行start stop 
+			% 保存在另一个单独的回调中，所以KP会同时触发几个回调
+			if ~isempty(obj.HookStarthotkey) 
+			    obj.eventListeners{'启动热键'} = addlistener(...
+                        obj.hook, 'KeyPressed', ...
+                        obj.Fcndic{'启动热键回调'});
+            end
+            if ~isempty(obj.HookStophotkey) 
+			    obj.eventListeners{'退出热键'} = addlistener(...
+                        obj.hook, 'KeyPressed', ...
+                        obj.Fcndic{'退出热键回调'});
+            end
+            % addlistener(obj,'HookStarthotkey','PostSet')
+
+
+        end
+
+function start(obj)
+            % START 启动全局钩子监听
+            if ~isvalid(obj)
+                warning('失效')
+                obj.delete
+                return
+            end
+
+methods (Access = private)
+        function setupEventHandlers(obj)
+            % SETUPEVENTHANDLERS 设置事件处理器
+            % 键盘按下事件
+            if ~isempty(obj.KeyPressCallback)
+                try
+                    obj.eventListeners{'KP'} = addlistener(...
+                        obj.hook, 'KeyPressed', ...
+                        [@obj.handleKeyPress @obj.KeyPressCallback]);
+                catch ME
+                    warning(ME.identifier, '无法添加键盘按下监听器: %s', ME.message);
+                end
+            end
+
+function StopFcn(obj,~,e)
+            if ~obj.isRunning
+                return
+            end
+            keyCode = e.KeyCode;
+            % ESC键停止监听
+            if strcmp(keyCode, obj.HookStophotkey)
+                obj.stop();
+                fprintf('监听已停止\n');
+                return;
+            end
+        end
+
+function handleKeyPress(obj, ~, e,callfcn)
+            % HANDLEKEYPRESS 处理键盘按下事件
+            
+            try
+                eventData = e.Data;
+                keyCode = char(eventData.KeyCode.ToString());
+                keyText = obj.getKeyText(eventData.KeyCode);
+                
+                % 构建回调数据结构
+                callbackData = struct(...
+                    'KeyCode', keyCode, ...
+                    'KeyText', keyText, ...
+                    'KeyChar', char(eventData.KeyChar), ...
+                    'EventType', 'KeyPress' ...
+                );
+                
+                    callfcn(obj,callbackData);
+                    % warning(ME.identifier, '键盘按下回调执行失败: %s', ME.message);
+            catch ME
+                fprintf('处理键盘按下事件失败: %s\n', ME.message);
+            end
+        end
+
+function getDic(obj)
+            keyMap = containers.Map();
+            letters ='A':'Z';
+            for i = 1:26
+                keyMap(sprintf('Vc%s', letters(i))) = letters(i);
+            end
+for i = 1:size(specialKeys, 1)
+                keyMap(specialKeys{i,1}) = specialKeys{i,2};
+            end
+            obj.keynameDic=keyMap;
+        end
+    end
